@@ -1,0 +1,179 @@
+
+
+body, html, #root {
+  height: 100%;
+  width: 100vw;
+  margin: 0;
+  padding: 0;
+  background: #f6f8fa;
+  font-family: 'Inter', Arial, sans-serif;
+  box-sizing: border-box;
+}
+
+.dashboard-layout {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  min-height: 0;
+}
+
+.sidebar {
+  background: linear-gradient(180deg, #2d2e83 0%, #1a1b4b 100%);
+  color: #fff;
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 24px 0;
+}
+.sidebar-header {
+  font-size: 1.7rem;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 2rem;
+}
+.sidebar-nav ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.sidebar-nav li {
+  padding: 14px 32px;
+  cursor: pointer;
+  border-left: 4px solid transparent;
+  transition: background 0.2s, border 0.2s;
+}
+.sidebar-nav li.active, .sidebar-nav li:hover {
+  background: #23236b;
+  border-left: 4px solid #6c63ff;
+}
+.sidebar-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 32px;
+}
+.sidebar-footer button {
+  background: #23236b;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.2s;
+}
+.sidebar-footer button:hover {
+  background: #6c63ff;
+}
+
+/* Remove top padding for map container alignment */
+.main-content {
+  flex: 1;
+  padding: 12px 48px 32px 48px; /* Add small top padding, remove large gap */
+  background: linear-gradient(135deg, #2d2e83 0%, #4f5bd5 100%);
+  min-width: 0;
+  height: 100vh;
+  overflow-y: auto;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+}
+.main-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 32px;
+  background: rgba(44, 62, 128, 0.85);
+  border-radius: 12px;
+  padding: 18px 28px;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(44, 62, 80, 0.10);
+}
+.main-header h1 {
+  font-size: 2rem;
+  margin: 0;
+}
+.search-bar {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+  font-size: 1rem;
+  width: 220px;
+  margin-right: 16px;
+}
+.user-info {
+  background: #fff;
+  border-radius: 50px;
+  padding: 8px 18px;
+  font-weight: 500;
+  color: #2d2e83;
+  box-shadow: 0 2px 8px rgba(44, 62, 80, 0.07);
+}
+
+.stats-grid {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+.stat-card {
+  background: rgba(44, 62, 128, 0.85);
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(44, 62, 80, 0.10);
+  padding: 24px 32px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  color: #fff;
+}
+.stat-title {
+  font-size: 1rem;
+  color: #b3b8e0;
+  margin-bottom: 8px;
+}
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 6px;
+}
+.status-ok {
+  color: #22c55e;
+}
+.stat-desc {
+  font-size: 0.95rem;
+  color: #b3b8e0;
+}
+
+.messages-section {
+  background: rgba(44, 62, 128, 0.85);
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(44, 62, 80, 0.10);
+  padding: 24px 32px;
+  color: #fff;
+}
+.messages-section h2 {
+  margin-top: 0;
+}
+.messages-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 16px;
+}
+.messages-table th, .messages-table td {
+  padding: 12px 8px;
+  text-align: left;
+  color: #fff;
+}
+.messages-table th {
+  color: #b3b8e0;
+  font-weight: 600;
+  border-bottom: 2px solid #3a3e8c;
+}
+.messages-table tr:not(:last-child) td {
+  border-bottom: 1px solid #3a3e8c;
+}
+.messages-table tr:hover {
+  background: #e6ecfa;
+}
