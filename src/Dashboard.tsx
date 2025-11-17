@@ -1,7 +1,8 @@
 import './Dashboard.css';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from './supabaseClient';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from 'react-leaflet';
+
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -29,42 +30,121 @@ interface BoatLocation {
   last_updated: string;
   latitude: number;
   longitude: number;
-  update_status: boolean;
+  is_distress: boolean;
 }
 
+// SVG Icons
+const BoatIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M3 21h18M4 21h16a1 1 0 0 0 1-1v-6.28a2 2 0 0 0-1.106-1.789l-7-3.5a2 2 0 0 0-1.788 0l-7 3.5A2 2 0 0 0 3 13.72V20a1 1 0 0 0 1 1z"/>
+    <path d="M12 9V2"/>
+    <path d="M8 6l4-4 4 4"/>
+  </svg>
+);
+
+const ClockIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="12" cy="12" r="10"/>
+    <polyline points="12 6 12 12 16 14"/>
+  </svg>
+);
+
+const WeatherIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/>
+  </svg>
+);
+
+const ThermometerIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>
+  </svg>
+);
+
+const WindIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2M17.7 7.7a2.5 2.5 0 1 0-1.8-4.3"/>
+    <path d="M9.5 4a2.5 2.5 0 1 1 1.8 4.3H2M9.5 4a2.5 2.5 0 1 0-1.8-4.3"/>
+    <path d="M20.5 14a2.5 2.5 0 1 1 1.8 4.3H2"/>
+  </svg>
+);
+
+const CalendarIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+    <line x1="16" y1="2" x2="16" y2="6"/>
+    <line x1="8" y1="2" x2="8" y2="6"/>
+    <line x1="3" y1="10" x2="21" y2="10"/>
+  </svg>
+);
+
 export default function Dashboard() {
+  const [isMapFullscreen, setIsMapFullscreen] = useState(false);
   const [registeredBoats, setRegisteredBoats] = useState<number>(0);
   const [weather, setWeather] = useState<Weather | null>(null);
   const [boatLocations, setBoatLocations] = useState<BoatLocation[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
+    const [emergencyShown, setEmergencyShown] = useState(false); // prevent spamming alerts
 
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   function getDayName(date: Date) {
     return date.toLocaleDateString(undefined, { weekday: 'long' });
   }
+const toggleFullscreen = () => {
+  setIsMapFullscreen(!isMapFullscreen);
+};
+useEffect(() => {
+    const distressBoat = boatLocations.find((loc) => loc.is_distress);
+
+    if (distressBoat) {
+      // Show popup
+      alert(
+        `🚨 EMERGENCY!\nBoat ${distressBoat.registration_number} reported distress at (${distressBoat.latitude}, ${distressBoat.longitude})`
+      );
+
+      // Play siren
+      if (audioRef.current) {
+        audioRef.current.loop = true; // repeat
+        audioRef.current.play().catch((err) => {
+          console.warn('Autoplay prevented by browser. User interaction required.', err);
+        });
+      }
+    } else {
+      // Stop siren if no distress
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+    }
+  }, [boatLocations]);
+
+
 
   useEffect(() => {
     async function fetchBoatLocations() {
       setLoading(true);
       const { data, error } = await supabase
-        .from('boat_current_location')
-        .select(
-          'boat_id, last_updated, latitude, longitude, update_status, boats_info(registration_number)'
-        )
-        .order('last_updated', { ascending: false });
+  .from('boat_current_location')
+  .select(
+    'boat_id, last_updated, latitude, longitude, is_distress, boats_info(registration_number)'
+  )
+  .order('last_updated', { ascending: false });
+
 
       if (error) {
         console.error('Error fetching boat locations:', error);
         setBoatLocations([]);
       } else {
-        const mapped = (data || []).map((row: any) => ({
-          id: row.id,
-          registration_number: row.boats_info?.registration_number || '',
-          last_updated: row.last_updated,
-          latitude: row.latitude,
-          longitude: row.longitude,
-          update_status: row.update_status,
-        }));
+       const mapped = (data || []).map((row: any) => ({
+  id: row.id,
+  registration_number: row.boats_info?.registration_number || '',
+  last_updated: row.last_updated,
+  latitude: row.latitude,
+  longitude: row.longitude,
+  is_distress: row.is_distress,
+}));
+
         setBoatLocations(mapped);
       }
       setLoading(false);
@@ -114,7 +194,19 @@ export default function Dashboard() {
     }
   );
 }, []);
+useEffect(() => {
+  const handleEscKey = (event: KeyboardEvent) => {
+    if (event.key === 'Escape' && isMapFullscreen) {
+      setIsMapFullscreen(false);
+    }
+  };
 
+  document.addEventListener('keydown', handleEscKey);
+  
+  return () => {
+    document.removeEventListener('keydown', handleEscKey);
+  };
+}, [isMapFullscreen]);
 useEffect(() => {
   async function fetchRegisteredBoats() {
     const { count, error } = await supabase
@@ -150,23 +242,111 @@ useEffect(() => {
     return null;
   }
 
-  return (
-    <div
-      className="dashboard-layout"
-      style={{
-        background: 'linear-gradient(135deg, #0a2342 0%, #19376d 100%)',
-        minHeight: '100vh',
-        width: '100vw',
-        maxHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'row',
-        overflow: 'hidden',
-      }}
-    >
+ return (
+  <div
+    className="dashboard-layout"
+    style={{
+    background: `linear-gradient(135deg, rgba(145, 9, 9, 0.8) 0%, rgba(192, 20, 20, 0.7) 100%), url('/sunset.jpg') center/cover no-repeat`,
+    minHeight: '100vh',
+    width: '100vw',
+    maxHeight: '100vh',
+    display: 'flex',
+    flexDirection: 'row',
+    overflow: 'hidden',
+  }}
+  >
+    <audio ref={audioRef} src="/alert.mp3" preload="auto" />
+    
+    {/* Fullscreen Map - Rendered outside normal layout */}
+    {isMapFullscreen && (
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(224, 179, 179, 0.2)',
+          backdropFilter: 'blur(5px)',
+          zIndex: 9999,
+          overflow: 'hidden',
+        }}
+      >
+        <button 
+  onClick={toggleFullscreen}
+  style={{
+    position: 'absolute',
+    top: '20px',
+    right: '20px',
+    background: 'rgba(255, 255, 255, 0.9)',
+    border: 'none',
+    borderRadius: '8px',
+    padding: '12px',
+    cursor: 'pointer',
+    zIndex: 10000,
+    fontSize: '20px',
+    fontWeight: 'bold',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+    width: '50px',
+    height: '50px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  }}
+>
+  ✕
+</button>
+        <MapContainer
+          center={[14.6, 120.98]}
+          zoom={13}
+          style={{ width: '100%', height: '100%' }}
+          scrollWheelZoom={true as any}
+        >
+          <FitBounds locations={boatLocations} />
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution="&copy; OpenStreetMap contributors"
+          />
+
+          {boatLocations.map((loc, idx) => (
+            <Marker key={idx} position={[loc.latitude, loc.longitude]} icon={boatIcon}>
+              <Popup>
+                <div>
+                  <strong>{loc.registration_number}</strong>
+                  <br />
+                  {`Lat: ${loc.latitude}, Lng: ${loc.longitude}`}
+                  <br />
+                  Status: {loc.is_distress ? '🚨 EMERGENCY' : '✅ NORMAL'}
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+
+          {boatLocations.map((loc, idx) =>
+            loc.is_distress ? (
+              <Circle
+                key={`circle-${idx}`}
+                center={[loc.latitude, loc.longitude]}
+                radius={1000}
+                pathOptions={{
+                  color: 'red',
+                  weight: 30,
+                  fillColor: 'red',
+                  fillOpacity: 0.8,
+                }}
+              />
+            ) : null
+          )}
+        </MapContainer>
+      </div>
+    )}
+
+    {/* Normal Dashboard Layout - Hidden when map is fullscreen */}
+    {!isMapFullscreen && (
       <div
         style={{
           flex: 1,
-          display: 'flex',
+          display: 'flex',  
           flexDirection: 'row',
           minWidth: 0,
           minHeight: '100vh',
@@ -180,11 +360,13 @@ useEffect(() => {
         <main
           className="main-content"
           style={{
-            background: '#fff',
+            background: 'rgba(255, 255, 255, 0.1)',
+            backdropFilter: 'blur(10px)',
             borderRadius: '1.5rem',
             margin: '0 0 0 1vw',
             padding: '1.5vw',
-            boxShadow: '0 2px 16px #0001',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
             flex: '1 1 700px',
             maxWidth: '900px',
             minWidth: '300px',
@@ -199,86 +381,119 @@ useEffect(() => {
             overflow: 'hidden',
           }}
         >
-         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-  {/* Registered Boats Card */}
-  <div
-    style={{
-      background: '#1f2c56',
-      color: '#fff',
-      padding: '1rem',
-      borderRadius: '1rem',
-      flex: 1,
-      textAlign: 'center',
-    }}
-  >
-    <h3>Boats Registered</h3>
-    <p style={{ fontSize: '2rem', fontWeight: 'bold' }}>{registeredBoats}</p>
-  </div>
-
-  {/* Date & Time Card */}
-  <div
-    style={{
-      background: '#0a2342',
-      color: '#fff',
-      padding: '1rem',
-      borderRadius: '1rem',
-      flex: 1,
-      textAlign: 'center',
-    }}
-  >
-    <h3>Current Date & Time</h3>
-    <p>
-      {currentTime.toLocaleDateString(undefined, {
-        weekday: 'long',
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric',
-      })}
-    </p>
-    <p>{currentTime.toLocaleTimeString()}</p>
-  </div>
-
-  {/* Weather Card */}
-  {weather && (
-    <div
-      style={{
-        background: '#19376d',
-        color: '#fff',
-        padding: '1rem',
-        borderRadius: '1rem',
-        flex: 1,
-        textAlign: 'center',
-      }}
-    >
-      <h3>Current Weather</h3>
-      <p>Temperature: {weather.temperature}°C</p>
-      <p>Wind Speed: {weather.windspeed} km/h</p>
-      <p>Date: {new Date(weather.time).toLocaleDateString(undefined, {
-        weekday: 'long',
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric',
-      })}</p>
-    </div>
-  )}
+          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+            {/* Registered Boats Card */}
+           <div
+  style={{
+    background: 'rgba(109, 25, 25, 0.3)',
+    color: '#fff',
+    padding: '1rem',
+    borderRadius: '1rem',
+    flex: 1,
+    textAlign: 'center',
+    backdropFilter: 'blur(5px)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+  }}
+>
+  <h3 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '0.5rem' }}>
+    <BoatIcon />
+    Boats Registered
+  </h3>
+  <p style={{ fontSize: '2rem', fontWeight: 'bold' }}>{registeredBoats}</p>
 </div>
 
+            {/* Date & Time Card */}
+            <div
+  style={{
+    background: 'rgba(109, 25, 25, 0.3)',
+    color: '#fff',
+    padding: '1rem',
+    borderRadius: '1rem',
+    flex: 1,
+    textAlign: 'center',
+    backdropFilter: 'blur(5px)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+  }}
+>
+  <h3 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '0.5rem' }}>
+    <ClockIcon />
+    Current Date & Time
+  </h3>
+  <p>
+    {currentTime.toLocaleDateString(undefined, {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    })}
+  </p>
+  <p>{currentTime.toLocaleTimeString()}</p>
+</div>
 
-          {/* header and stats remain the same */}
-          {/* ... */}
+            {boatLocations.some((loc) => loc.is_distress) && (
+              <div
+                style={{
+                  position: 'fixed',
+                  top: '20px',
+                  right: '20px',
+                  background: '#e74c3c',
+                  color: '#fff',
+                  padding: '1rem 2rem',
+                  borderRadius: '0.8rem',
+                  fontWeight: 'bold',
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
+                  zIndex: 1000,
+                }}
+              >
+                🚨 Emergency Alert: A boat is in distress!
+              </div>
+            )}
+
+            {/* Weather Card */}
+            {weather && (
+              <div
+  style={{
+    background: 'rgba(109, 25, 25, 0.3)',
+    color: '#fff',
+    padding: '1rem',
+    borderRadius: '1rem',
+    flex: 1,
+    textAlign: 'center',
+    backdropFilter: 'blur(5px)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+  }}
+>
+  <h3 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '0.5rem' }}>
+    <WeatherIcon />
+    Current Weather
+  </h3>
+  <p style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', margin: '0.5rem 0' }}>
+    <ThermometerIcon />
+    Temperature: {weather.temperature}°C
+  </p>
+  <p style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', margin: '0.5rem 0' }}>
+    <WindIcon />
+    Wind Speed: {weather.windspeed} km/h
+  </p>
+
+</div>
+            )}
+          </div>
 
           <section
             className="messages-section"
             style={{
-              background: 'rgba(255,255,255,0.97)',
+              background: 'rgba(255, 255, 255, 0.15)',
+              backdropFilter: 'blur(8px)',
               borderRadius: '1rem',
               padding: '1.5rem',
-              boxShadow: '0 2px 8px #0002',
+              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
               minHeight: '300px',
               height: 'auto',
             }}
           >
-            <h2 style={{ color: '#19376d' }}>Recent Messages</h2>
+            <h2 style={{ color: '#fff' }}>Recent Messages</h2>
             <table
               className="messages-table"
               style={{
@@ -291,7 +506,7 @@ useEffect(() => {
               }}
             >
               <thead>
-                <tr style={{ background: '#25406d' }}>
+                <tr style={{ background: 'rgba(109, 36, 36, 0.6)' }}>
                   <th
                     style={{
                       color: '#fff',
@@ -356,7 +571,7 @@ useEffect(() => {
                     <tr>
                       <td
                         colSpan={4}
-                        style={{ textAlign: 'center', color: '#19376d', padding: '1rem' }}
+                        style={{ textAlign: 'center', color: '#fff', padding: '1rem' }}
                       >
                         Loading...
                       </td>
@@ -365,7 +580,7 @@ useEffect(() => {
                     <tr>
                       <td
                         colSpan={4}
-                        style={{ textAlign: 'center', color: '#19376d', padding: '1rem' }}
+                        style={{ textAlign: 'center', color: '#fff', padding: '1rem' }}
                       >
                         No data found.
                       </td>
@@ -376,7 +591,7 @@ useEffect(() => {
                         <td
                           style={{
                             padding: '0.5rem 0.5rem',
-                            color: '#19376d',
+                            color: '#fff',
                             width: '22%',
                             textAlign: 'center',
                           }}
@@ -386,7 +601,7 @@ useEffect(() => {
                         <td
                           style={{
                             padding: '0.5rem 0.5rem',
-                            color: '#19376d',
+                            color: '#fff',
                             width: '28%',
                             textAlign: 'center',
                           }}
@@ -396,7 +611,7 @@ useEffect(() => {
                         <td
                           style={{
                             padding: '0.5rem 0.5rem',
-                            color: '#19376d',
+                            color: '#fff',
                             width: '35%',
                             textAlign: 'center',
                           }}
@@ -404,13 +619,13 @@ useEffect(() => {
                         <td
                           style={{
                             padding: '0.5rem 0.5rem',
-                            color: loc.update_status ? '#27ae60' : '#e74c3c',
+                            color: loc.is_distress ? '#e74c3c' : '#27ae60',
                             fontWeight: 'bold',
                             width: '15%',
                             textAlign: 'center',
                           }}
                         >
-                          {loc.update_status ? 'Normal' : 'Emergency'}
+                          {loc.is_distress ? 'EMERGENCY' : 'NORMAL'}
                         </td>
                       </tr>
                     ))
@@ -421,7 +636,7 @@ useEffect(() => {
           </section>
         </main>
 
-
+        {/* Normal Map */}
         <div
           style={{
             flex: 1,
@@ -439,18 +654,45 @@ useEffect(() => {
               height: 'calc(90vh - 3vw)',
               width: '100%',
               maxWidth: '400px',
-              background: '#b3b8e0',
+              background: 'rgba(224, 179, 179, 0.2)',
+              backdropFilter: 'blur(5px)',
               borderRadius: '1.5rem',
-              boxShadow: '0 2px 16px #0001',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
               overflow: 'hidden',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: '1.2rem',
-              color: '#25406d',
+              color: '#6d2525',
               margin: '0 2vw 0 1vw',
+              position: 'relative',
             }}
           >
+            <button 
+  onClick={toggleFullscreen}
+  style={{
+    position: 'absolute',
+    top: '10px',
+    right: '10px',
+    background: 'rgba(255, 255, 255, 0.9)',
+    border: 'none',
+    borderRadius: '4px',
+    padding: '8px',
+    cursor: 'pointer',
+    zIndex: 1000,
+    fontSize: '18px',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+    width: '40px',
+    height: '40px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  }}
+>
+  ⛶
+</button>
+            
             <MapContainer
               center={[14.6, 120.98]}
               zoom={13}
@@ -462,6 +704,7 @@ useEffect(() => {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 attribution="&copy; OpenStreetMap contributors"
               />
+
               {boatLocations.map((loc, idx) => (
                 <Marker key={idx} position={[loc.latitude, loc.longitude]} icon={boatIcon}>
                   <Popup>
@@ -470,15 +713,32 @@ useEffect(() => {
                       <br />
                       {`Lat: ${loc.latitude}, Lng: ${loc.longitude}`}
                       <br />
-                      Status: {loc.update_status ? 'Normal' : 'Emergency'}
+                      Status: {loc.is_distress ? '🚨 EMERGENCY' : '✅ NORMAL'}
                     </div>
                   </Popup>
                 </Marker>
               ))}
+
+              {boatLocations.map((loc, idx) =>
+                loc.is_distress ? (
+                  <Circle
+                    key={`circle-${idx}`}
+                    center={[loc.latitude, loc.longitude]}
+                    radius={1000}
+                    pathOptions={{
+                      color: 'red',
+                      weight: 30,
+                      fillColor: 'red',
+                      fillOpacity: 0.8,
+                    }}
+                  />
+                ) : null
+              )}
             </MapContainer>
           </div>
         </div>
       </div>
-    </div>
-  );
+    )}
+  </div>
+);
 }
