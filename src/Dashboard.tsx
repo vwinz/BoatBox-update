@@ -258,8 +258,8 @@ export default function Dashboard() {
             ✕
           </button>
          <MapContainer
-  center={[14.6, 120.98]}
-  zoom={5}
+   center={[14.085616, 120.627538]}
+                zoom={12}
   style={{ width: '100%', height: '100%' }}
   scrollWheelZoom={true}
   zoomControl={true}
@@ -596,8 +596,8 @@ export default function Dashboard() {
               </button>
               
               <MapContainer
-                center={[14.6, 120.98]}
-                zoom={5}
+                center={[14.085616, 120.627538]}
+                zoom={12}
                 style={{ width: '100%', height: '100%', borderRadius: '1.5rem' }}
                 scrollWheelZoom={true}
                 zoomControl={true}
